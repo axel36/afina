@@ -58,7 +58,7 @@ public:
     bool Delete(const std::string &key) override;
 
     // Implements Afina::Storage interface
-    bool Get(const std::string &key, std::string &value) const override;
+    bool Get(const std::string &key, std::string &value) override;
 
 private:
     // LRU cache node
@@ -93,9 +93,10 @@ private:
     // Index of nodes from list above, allows fast random access to elements by lru_node#key
     std::unordered_map<std::string, std::reference_wrapper<lru_node>> _lru_index;
 
-    void _swap_to_head(lru_node &recently_used);
-    void _delete_less_used();
-    void _insert_new_value(const std::string &, const std::string &, size_t );
+    void _move_to_fresh_data(lru_node &recently_used);
+    void _remove_node(lru_node &);
+    void _insert_new_value(const std::string &, const std::string &);
+    void _update_value(lru_node &, const std::string&);
 };
 
 } // namespace Backend
