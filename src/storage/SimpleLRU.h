@@ -33,16 +33,15 @@ public:
         }
         _lru_index.clear();
 
-        lru_node *node_to_delete;
 
         while(_lru_head->next != nullptr )
         {
-            node_to_delete = _lru_head.get();
-            _lru_head.swap(_lru_head->next);
-            delete node_to_delete;
+            std::unique_ptr<lru_node> node_to_delete;
+            node_to_delete.swap(_lru_head);
+            _lru_head.swap(node_to_delete->next);
         }
-        node_to_delete = _lru_head.release();
-        delete node_to_delete;
+        _lru_head.reset();
+
     }
 
     // Implements Afina::Storage interface
