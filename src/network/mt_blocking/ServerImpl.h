@@ -3,6 +3,9 @@
 
 #include <atomic>
 #include <thread>
+#include <mutex>
+#include <unordered_map>
+#include <condition_variable>
 
 #include <afina/network/Server.h>
 
@@ -31,6 +34,14 @@ public:
 
     // See Server.h
     void Join() override;
+    void setMaxConnections(int mc){
+        _max_connections = mc;
+    }
+
+    int getMaxConnections(){
+        return _max_connections;
+    }
+
 
 protected:
     /**
@@ -50,8 +61,17 @@ private:
     // Server socket to accept connections on
     int _server_socket;
 
+    int _max_connections = 7;
+
     // Thread to run network on
     std::thread _thread;
+
+    std::mutex _main_mutex;
+    std::unordered_map<int, std::thread> _workers;
+    std::condition_variable _join_threads;
+
+
+    void _connection_processing(int);
 };
 
 } // namespace MTblocking
