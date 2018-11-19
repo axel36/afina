@@ -207,9 +207,16 @@ void ServerImpl::OnNewConnection(int epoll_descr) {
         }
 
         // Register the new FD to be monitored by epoll.
-        Connection *pc = new Connection(infd);
+        Connection *pc = new Connection(infd, _logger, pStorage);
         if (pc == nullptr) {
             throw std::runtime_error("Failed to allocate connection");
+        }
+
+        {
+            struct timeval tv;
+            tv.tv_sec = 5; // TODO: make it configurable
+            tv.tv_usec = 0;
+            setsockopt(infd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
         }
 
         // Register connection in worker's epoll
