@@ -94,9 +94,8 @@ void ServerImpl::Stop() {
         throw std::runtime_error("Failed to wakeup workers");
     }
 
-    for(auto con : _connections){
-        close(con->_socket);
-        delete con;
+    for(auto &con : _connections){
+        delete con.second;
     }
 
     _connections.clear();
@@ -173,14 +172,18 @@ void ServerImpl::OnRun() {
                     _logger->error("Failed to delete connection from epoll");
                 }
 
-                close(pc->_socket);
+                _connections.erase(pc->_socket);
                 pc->OnClose();
-                //delete pc;
+                delete pc;
 
 
             } else if (pc->_event.events != old_mask) {
                 if (epoll_ctl(epoll_descr, EPOLL_CTL_MOD, pc->_socket, &pc->_event)) {
                     _logger->error("Failed to change connection event mask");
+
+                    _connections.erase(pc->_socket);
+                    pc->OnError();
+                    delete pc;
                 }
 
 //                close(pc->_socket);
@@ -199,6 +202,7 @@ void ServerImpl::OnNewConnection(int epoll_descr) {
             struct sockaddr in_addr;
             socklen_t in_len;
 
+            //ToDo: Ask about RAII connection
             // No need to make these sockets non blocking since accept4() takes care of it.
             in_len = sizeof in_addr;
             int infd = accept4(_server_socket, &in_addr, &in_len, SOCK_NONBLOCK | SOCK_CLOEXEC);
@@ -233,9 +237,10 @@ void ServerImpl::OnNewConnection(int epoll_descr) {
             pc->Start();
             if (epoll_ctl(epoll_descr, EPOLL_CTL_ADD, pc->_socket, &pc->_event) != -1) {
 
-                _connections.push_back(pc);
+                _connections.insert(std::make_pair(pc->_socket,pc));
             } else {
                 pc->OnError();
+                delete pc;
                 throw std::runtime_error(std::string(strerror(errno)));
             }
 

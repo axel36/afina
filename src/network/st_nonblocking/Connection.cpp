@@ -11,7 +11,9 @@ namespace Afina {
 namespace Network {
 namespace STnonblock {
 
-    Connection::~Connection() = default;
+    Connection::~Connection(){
+        close(_socket);
+    }
 
 // See Connection.h
     void Connection::Start() {

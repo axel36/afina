@@ -3,6 +3,7 @@
 
 #include <thread>
 #include <vector>
+#include <map>
 
 #include <afina/network/Server.h>
 #include "Connection.h"
@@ -61,8 +62,10 @@ private:
     // IO thread
     std::thread _work_thread;
 
-    std::vector<Connection *> _connections;
+//    std::vector<Connection *> _connections;
+    std::map<int, Connection*> _connections;
 };
+
 
 } // namespace STnonblock
 } // namespace Network
