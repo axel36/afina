@@ -16,6 +16,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+
 #include <spdlog/logger.h>
 
 #include <afina/Storage.h>
@@ -32,9 +33,10 @@ namespace STnonblock {
 ServerImpl::ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl) : Server(ps, pl) {}
 
 // See Server.h
-ServerImpl::~ServerImpl() {}
+ServerImpl::~ServerImpl() = default;
 
-// See Server.h
+
+    // See Server.h
 void ServerImpl::Start(uint16_t port, uint32_t n_acceptors, uint32_t n_workers) {
     _logger = pLogging->select("network");
     _logger->info("Start network service");
@@ -91,6 +93,14 @@ void ServerImpl::Stop() {
     if (eventfd_write(_event_fd, 1)) {
         throw std::runtime_error("Failed to wakeup workers");
     }
+
+    for(auto con : _connections){
+        close(con->_socket);
+        delete con;
+    }
+
+    _connections.clear();
+
 }
 
 // See Server.h
@@ -138,6 +148,7 @@ void ServerImpl::OnRun() {
                 continue;
             }
 
+            //0x7efe18000b20
             // That is some connection!
             Connection *pc = static_cast<Connection *>(current_event.data.ptr);
 
@@ -164,17 +175,18 @@ void ServerImpl::OnRun() {
 
                 close(pc->_socket);
                 pc->OnClose();
+                //delete pc;
 
-                delete pc;
+
             } else if (pc->_event.events != old_mask) {
                 if (epoll_ctl(epoll_descr, EPOLL_CTL_MOD, pc->_socket, &pc->_event)) {
                     _logger->error("Failed to change connection event mask");
                 }
 
-                close(pc->_socket);
-                pc->OnClose();
+//                close(pc->_socket);
+//                pc->OnClose();
+//                delete pc;
 
-                delete pc;
             }
         }
     }
@@ -182,53 +194,60 @@ void ServerImpl::OnRun() {
 }
 
 void ServerImpl::OnNewConnection(int epoll_descr) {
-    for (;;) {
-        struct sockaddr in_addr;
-        socklen_t in_len;
+    try {
+        for (;;) {
+            struct sockaddr in_addr;
+            socklen_t in_len;
 
-        // No need to make these sockets non blocking since accept4() takes care of it.
-        in_len = sizeof in_addr;
-        int infd = accept4(_server_socket, &in_addr, &in_len, SOCK_NONBLOCK | SOCK_CLOEXEC);
-        if (infd == -1) {
-            if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
-                break; // We have processed all incoming connections.
+            // No need to make these sockets non blocking since accept4() takes care of it.
+            in_len = sizeof in_addr;
+            int infd = accept4(_server_socket, &in_addr, &in_len, SOCK_NONBLOCK | SOCK_CLOEXEC);
+            if (infd == -1) {
+                if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
+                    break; // We have processed all incoming connections.
+                } else {
+
+                    throw std::runtime_error("Failed to accept socket");
+
+                }
+            }
+
+            // Print host and service info.
+            char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+            int retval =
+                    getnameinfo(&in_addr, in_len, hbuf, sizeof hbuf, sbuf, sizeof sbuf,
+                                NI_NUMERICHOST | NI_NUMERICSERV);
+            if (retval == 0) {
+                _logger->info("Accepted connection on descriptor {} (host={}, port={})\n", infd, hbuf, sbuf);
+            }
+
+            // Register the new FD to be monitored by epoll.
+            auto pc = new Connection(infd, _logger, pStorage);
+
+            if (pc == nullptr) {
+                throw std::runtime_error("Failed to allocate connection");
+            }
+
+
+            // Register connection in worker's epoll
+            pc->Start();
+            if (epoll_ctl(epoll_descr, EPOLL_CTL_ADD, pc->_socket, &pc->_event) != -1) {
+
+                _connections.push_back(pc);
             } else {
-                _logger->error("Failed to accept socket");
-                break;
-            }
-        }
-
-        // Print host and service info.
-        char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
-        int retval =
-            getnameinfo(&in_addr, in_len, hbuf, sizeof hbuf, sbuf, sizeof sbuf, NI_NUMERICHOST | NI_NUMERICSERV);
-        if (retval == 0) {
-            _logger->info("Accepted connection on descriptor {} (host={}, port={})\n", infd, hbuf, sbuf);
-        }
-
-        // Register the new FD to be monitored by epoll.
-        Connection *pc = new Connection(infd, _logger, pStorage);
-        if (pc == nullptr) {
-            throw std::runtime_error("Failed to allocate connection");
-        }
-
-        {
-            struct timeval tv;
-            tv.tv_sec = 5; // TODO: make it configurable
-            tv.tv_usec = 0;
-            setsockopt(infd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
-        }
-
-        // Register connection in worker's epoll
-        pc->Start();
-        if (pc->isAlive()) {
-            if (epoll_ctl(epoll_descr, EPOLL_CTL_ADD, pc->_socket, &pc->_event)) {
                 pc->OnError();
-                delete pc;
+                throw std::runtime_error(std::string(strerror(errno)));
             }
+
         }
+    }catch (std::runtime_error &ex) {
+
+        _logger->error(" Problem with creating New Connection: {}", ex.what());
+
     }
 }
+
+
 
 } // namespace STnonblock
 } // namespace Network

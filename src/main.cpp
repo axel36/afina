@@ -39,7 +39,28 @@ public:
         console.color = true;
 
         Logging::Logger &logger = logConfig->loggers["root"];
-        logger.level = Logging::Logger::Level::WARNING;
+
+        std::string logger_type = "warn";
+        if(options.count("logger") > 0){
+            logger_type = options["logger"].as<std::string>();
+        }
+
+        if(logger_type == "warn")
+            logger.level = Logging::Logger::Level::WARNING;
+        else if(logger_type == "info")
+            logger.level = Logging::Logger::Level::INFO;
+        else if(logger_type == "critical")
+            logger.level = Logging::Logger::Level::CRITICAL;
+        else if(logger_type == "error")
+            logger.level = Logging::Logger::Level::ERROR;
+        else if(logger_type == "debug")
+            logger.level = Logging::Logger::Level::DEBUG;
+        else if(logger_type == "trace")
+            logger.level = Logging::Logger::Level::TRACE;
+        else {
+            throw std::runtime_error("Unknown logger level type");
+        }
+
         logger.appenders.push_back("console");
         logger.format = "[%H:%M:%S %z] [thread %t] [%n] [%l] %v";
         logService.reset(new Logging::ServiceImpl(logConfig));
@@ -129,6 +150,7 @@ int main(int argc, char **argv) {
         // and simplify validation below
         options.add_options()("s,storage", "Type of storage service to use", cxxopts::value<std::string>());
         options.add_options()("n,network", "Type of network service to use", cxxopts::value<std::string>());
+        options.add_options()("l,logger", "Type of logging to use", cxxopts::value<std::string>());
         options.add_options()("h,help", "Print usage info");
         options.parse(argc, argv);
 

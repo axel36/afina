@@ -5,6 +5,7 @@
 #include <vector>
 
 #include <afina/network/Server.h>
+#include "Connection.h"
 
 namespace spdlog {
 class logger;
@@ -25,6 +26,9 @@ class ServerImpl : public Server {
 public:
     ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl);
     ~ServerImpl();
+
+    ServerImpl(const ServerImpl &) = delete;
+    ServerImpl& operator=(const ServerImpl&) = delete;
 
     // See Server.h
     void Start(uint16_t port, uint32_t acceptors, uint32_t workers) override;
@@ -56,6 +60,8 @@ private:
 
     // IO thread
     std::thread _work_thread;
+
+    std::vector<Connection *> _connections;
 };
 
 } // namespace STnonblock

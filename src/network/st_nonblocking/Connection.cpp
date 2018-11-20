@@ -3,16 +3,22 @@
 
 #include <iostream>
 #include <zconf.h>
+#include <sys/socket.h>
 
-#include <afina/execute/Command.h>
+
 
 namespace Afina {
 namespace Network {
 namespace STnonblock {
 
+    Connection::~Connection() = default;
+
 // See Connection.h
     void Connection::Start() {
         _connection_alive = true;
+        _event.events = EPOLLIN | EPOLLRDHUP | EPOLLERR;
+        _event.data.fd = _socket;
+        _event.data.ptr = this;
     }
 
 // See Connection.h
@@ -23,17 +29,14 @@ namespace STnonblock {
 
 // See Connection.h
     void Connection::OnClose() {
-        _logger->error("Close connection on descriptor {} \n",_socket);
+        _logger->debug("Close connection on descriptor {} \n",_socket);
         _connection_alive = false;
     }
 
 // See Connection.h
     void Connection::DoRead() {
 
-        Protocol::Parser parser;
-        std::size_t arg_remains;
-        std::string argument_for_command;
-        std::unique_ptr<Execute::Command> command_to_execute;
+        _logger->debug("Read from connection on descriptor {} \n",_socket);
         try {
             long readed_bytes = -1;
             char client_buffer[4096];
@@ -88,12 +91,11 @@ namespace STnonblock {
                         std::string result;
                         command_to_execute->Execute(*pStorage, argument_for_command, result);
 
-                        // Send response
-                        result += "\r\n";
-                        _results.push_back(result);
+                        // Prepare response
 
+                        _results+=result+"\r\n";
 
-                        _event.events = EPOLLOUT;
+                        _event.events = EPOLLOUT | EPOLLIN | EPOLLRDHUP | EPOLLERR;
                         // Prepare for the next command
                         command_to_execute.reset();
                         argument_for_command.resize(0);
@@ -101,19 +103,40 @@ namespace STnonblock {
                     }
                 }
             }
-            if (readed_bytes == 0) {
-                _logger->debug("Connection closed");
+            if (readed_bytes == 0 || errno == EAGAIN) {
+                _logger->debug("Client stop to write to connection on descriptor {} ",_socket);
             } else {
                 throw std::runtime_error(std::string(strerror(errno)));
             }
         } catch (std::runtime_error &ex) {
-            _logger->error("Failed to process connection on descriptor {}: {}", _socket, ex.what());
+            _logger->error("Failed to read from connection on descriptor {}: {}", _socket, ex.what());
+            _connection_alive = false;
         }
     }
 
 
 // See Connection.h
-void Connection::DoWrite() { std::cout << "DoWrite" << std::endl; }
+    void Connection::DoWrite() {
+        _logger->debug("Wright to connection on descriptor {} \n", _socket);
+
+        //TODO: check for overflow
+        try {
+            unsigned long send_b;
+            if ((send_b = send(_socket, _results.data(), _results.size(), 0)) <= 0) {
+                throw std::runtime_error("Failed to send response");
+            }
+            if (send_b >= _results.size()) {
+                _results.clear();
+                _event.events = EPOLLIN | EPOLLRDHUP | EPOLLERR;
+            } else {
+                _results.erase(0, send_b);
+                _event.events = EPOLLOUT | EPOLLIN | EPOLLRDHUP | EPOLLERR;
+            }
+        }catch (std::runtime_error &ex) {
+            _logger->error("Failed to wright to connection on descriptor {}: {}", _socket, ex.what());
+            _connection_alive = false;
+        }
+    }
 
 } // namespace STnonblock
 } // namespace Network
