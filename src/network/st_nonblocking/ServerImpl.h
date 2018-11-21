@@ -28,9 +28,6 @@ public:
     ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl);
     ~ServerImpl();
 
-    ServerImpl(const ServerImpl &) = delete;
-    ServerImpl& operator=(const ServerImpl&) = delete;
-
     // See Server.h
     void Start(uint16_t port, uint32_t acceptors, uint32_t workers) override;
 
@@ -45,6 +42,10 @@ protected:
     void OnNewConnection(int);
 
 private:
+
+    ServerImpl(const ServerImpl &) = delete;
+    ServerImpl& operator=(const ServerImpl&) = delete;
+
     // logger to use
     std::shared_ptr<spdlog::logger> _logger;
 
@@ -62,7 +63,7 @@ private:
     // IO thread
     std::thread _work_thread;
 
-//    std::vector<Connection *> _connections;
+//    std::vector<std::unique_ptr<Connection>> _connections;
     std::map<int, Connection*> _connections;
 };
 
