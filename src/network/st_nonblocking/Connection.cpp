@@ -3,7 +3,7 @@
 
 #include <iostream>
 #include <zconf.h>
-#include <sys/socket.h>
+
 
 
 
@@ -18,7 +18,7 @@ namespace STnonblock {
 // See Connection.h
     void Connection::Start() {
         _connection_alive = true;
-        _event.events = EPOLLIN | EPOLLRDHUP | EPOLLERR;
+        _event.events = EPOLLIN | EPOLLRDHUP;
         _event.data.fd = _socket;
         _event.data.ptr = this;
     }
@@ -97,7 +97,7 @@ namespace STnonblock {
 
                         _results+=result+"\r\n";
 
-                        _event.events = EPOLLOUT | EPOLLIN | EPOLLRDHUP | EPOLLERR;
+                        _event.events = EPOLLOUT | EPOLLIN | EPOLLRDHUP ;
                         // Prepare for the next command
                         command_to_execute.reset();
                         argument_for_command.resize(0);
@@ -129,10 +129,10 @@ namespace STnonblock {
             }
             if (send_b >= _results.size()) {
                 _results.clear();
-                _event.events = EPOLLIN | EPOLLRDHUP | EPOLLERR;
+                _event.events = EPOLLIN | EPOLLRDHUP;
             } else {
                 _results.erase(0, send_b);
-                _event.events = EPOLLOUT | EPOLLIN | EPOLLRDHUP | EPOLLERR;
+                _event.events = EPOLLOUT | EPOLLIN | EPOLLRDHUP;
             }
         }catch (std::runtime_error &ex) {
             _logger->error("Failed to wright to connection on descriptor {}: {}", _socket, ex.what());

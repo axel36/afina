@@ -4,7 +4,7 @@
 #define AFINA_NETWORK_ST_NONBLOCKING_CONNECTION_H
 
 #include <cstring>
-
+#include <sys/socket.h>
 #include <sys/epoll.h>
 #include <spdlog/logger.h>
 #include <afina/Storage.h>
@@ -45,7 +45,6 @@ private:
     std::shared_ptr<Afina::Storage> pStorage;
 
     bool _connection_alive;
-
 
     std::string _results;
 

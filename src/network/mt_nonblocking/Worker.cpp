@@ -35,7 +35,7 @@ Worker::~Worker() {
 Worker::Worker(Worker &&other) { *this = std::move(other); }
 
 // See Worker.h
-Worker &Worker::operator=(Worker &&other) {
+Worker &Worker::operator= (Worker &&other) {
     _pStorage = std::move(other._pStorage);
     _pLogging = std::move(other._pLogging);
     _logger = std::move(other._logger);
@@ -48,7 +48,7 @@ Worker &Worker::operator=(Worker &&other) {
 
 // See Worker.h
 void Worker::Start(int epoll_fd) {
-    if (isRunning.exchange(true) == false) {
+    if (!isRunning.exchange(true)) {
         assert(_epoll_fd == -1);
         _epoll_fd = epoll_fd;
         _logger = _pLogging->select("network.worker");

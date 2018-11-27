@@ -64,7 +64,7 @@ private:
     std::thread _work_thread;
 
 //    std::vector<std::unique_ptr<Connection>> _connections;
-    std::map<int, Connection*> _connections;
+    std::map<int, std::unique_ptr<Connection>> _connections;
 };
 
 

@@ -95,7 +95,9 @@ void ServerImpl::Stop() {
     }
 
     for(auto &con : _connections){
-        delete con.second;
+        std::unique_ptr<Connection> tmp;
+        tmp.swap(con.second);
+        //con.second;
     }
 
     _connections.clear();
@@ -172,9 +174,12 @@ void ServerImpl::OnRun() {
                     _logger->error("Failed to delete connection from epoll");
                 }
 
+                std::unique_ptr<Connection> tmp;
+                tmp.swap(_connections[pc->_socket]);
+
                 _connections.erase(pc->_socket);
                 pc->OnClose();
-                delete pc;
+                //delete pc;
 
 
             } else if (pc->_event.events != old_mask) {
@@ -227,6 +232,9 @@ void ServerImpl::OnNewConnection(int epoll_descr) {
 
             // Register the new FD to be monitored by epoll.
             auto pc = new Connection(infd, _logger, pStorage);
+            //auto pc = std::make_unique<Connection>(infd, _logger, pStorage);
+            //_connections.insert(std::make_pair(infd,
+            //        std::make_unique<Connection>(infd, _logger, pStorage)));
 
             if (pc == nullptr) {
                 throw std::runtime_error("Failed to allocate connection");
@@ -237,7 +245,7 @@ void ServerImpl::OnNewConnection(int epoll_descr) {
             pc->Start();
             if (epoll_ctl(epoll_descr, EPOLL_CTL_ADD, pc->_socket, &pc->_event) != -1) {
 
-                _connections.insert(std::make_pair(pc->_socket,pc));
+                _connections.insert(std::make_pair(pc->_socket,std::unique_ptr<Connection>(pc)));
             } else {
                 pc->OnError();
                 delete pc;
