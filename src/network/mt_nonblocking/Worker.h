@@ -34,7 +34,7 @@ public:
     Worker &operator=(Worker &&);
 
     /**
-     * Spaws new background thread that is doing epoll on the given server
+     * Spawns new background thread that is doing epoll on the given server
      * socket. Once connection accepted it must be registered and being processed
      * on this thread
      */
