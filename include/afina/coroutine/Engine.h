@@ -6,7 +6,6 @@
 #include <map>
 #include <setjmp.h>
 #include <tuple>
-#include <cstring>
 
 namespace Afina {
 namespace Coroutine {
@@ -118,15 +117,12 @@ public:
         // Start routine execution
         void *pc = run(main, std::forward<Ta>(args)...);
         idle_ctx = new context();
-        //std::cout<<"starH "<< (void*)(((context*)pc)->Hight)<< std::endl;
-        //std::cout<<"starL "<< (void*)(((context*)pc)->Low)<< std::endl;
 
         if (setjmp(idle_ctx->Environment) > 0) {
             // Here: correct finish of the coroutine section
             yield();
         } else if (pc != nullptr) {
             Store(*idle_ctx);
-            //cur_routine = idle_ctx;
             sched(pc);
         }
 
@@ -177,7 +173,7 @@ public:
             // current coroutine finished, and the pointer is not relevant now
             cur_routine = nullptr;
             pc->prev = pc->next = nullptr;
-            delete[] std::get<0>(pc->Stack);
+            delete std::get<0>(pc->Stack);
             delete pc;
 
             // We cannot return here, as this function "returned" once already, so here we must select some other
