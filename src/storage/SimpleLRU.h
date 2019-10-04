@@ -45,7 +45,7 @@ private:
         std::string key;
         std::string value;
         std::unique_ptr<lru_node> prev;
-        std::unique_ptr<lru_node> next;
+        lru_node *next;
     };
 
     // Maximum number of bytes could be stored in this cache.
